@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Linode DNS finder</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="">
+    <meta name="author" content="">
+
+    <!-- Le styles -->
+    <link href="css/bootstrap.min.css" rel="stylesheet">
+    <link href="css/font-awesome.min.css" rel="stylesheet">
+
+	<style type="text/css">
+	
+html, body {
+    height: 100%;
+}
+      #loading {
+		background: none repeat scroll 0 0 #FFFFCC;
+		border: 1px solid #FFFF00;
+		left: 50%;
+		margin-left: -50px;
+		padding: 5px;
+		position: fixed;
+		text-align: center;
+		top: 0;
+		width: 100px;
+		z-index: 1050;
+		display: none;
+	  }
+	  
+#wrap .container {
+    padding-top: 60px;
+}
+.footer {
+    background-color: #F5F5F5;
+    border-top: 1px solid #E5E5E5;
+    margin-top: 70px;
+    padding: 30px 0;
+    text-align: center;
+}
+    </style>
+    <link href="css/bootstrap-responsive.css" rel="stylesheet">
+
+    <!-- HTML5 shim, for IE6-8 support of HTML5 elements -->
+    <!--[if lt IE 9]>
+      <script src="../assets/js/html5shiv.js"></script>
+    <![endif]-->
+
+  </head>
+
+  <body>
+	<div id="loading">
+		<img src="img/ajax-loader.gif"> Loading
+	</div>
+	
+    <div class="navbar navbar-inverse navbar-fixed-top">
+      <div class="navbar-inner">
+        <div class="container">
+          <a class="brand" href="#">Linode DNS finder</a>
+        </div>
+      </div>
+    </div>
+
+<div id="wrap">
+    <div class="container">
+		<div id="errors"></div>
+		
+		<form class="form-horizontal" id="api-key">
+			<div class="control-group">
+				<label class="control-label" for="inputApiKey">API Key</label>
+				<div class="controls">
+					<input type="text" id="inputApiKey" placeholder="Enter your key" class="input-xxlarge">
+					<div class="help-inline hide">Enter your API key!!!</div>
+				</div>
+			</div>
+			<div class="controls">
+				<button type="submit" class="btn btn-primary"><i class="icon-search"></i> Find Domains</button>
+			</div>
+		</form>
+		
+		
+		<div id="domains" class="hide">
+			<hr>
+			<h4>Domains</h4>
+			<table class="table" id="domains-table">
+				<thead>
+					<tr>
+						<th>Domain Id</th>
+						<th>Domain</th>
+						<th></th>
+					</tr>
+				</thead>
+				<tbody></tbody>
+			</table>
+		</div>
+		
+		<div id="resources" class="hide">
+			<hr>
+			<h4>Resources</h4>
+			<table class="table" id="resources-table">
+				<thead>
+					<tr>
+						<th>Resource Id</th>
+						<th>Name</th>
+						<th>Type</th>
+						<th>Target</th>
+					</tr>
+				</thead>
+				<tbody></tbody>
+			</table>
+		</div>
+		
+		<div class="row">
+		<div class="span6 ">
+			<div class="well">
+				<h4>About</h4>
+				<p>I made this quickly to find domain and resource ids to use with a linode DDNS updater script, as you need the domain and resource id of the domain you want to update, and I couldn't find any easy way of finding them!</p>
+				<p>Your API isn't transmitted to my server in any way, it goes straight to the Linode API* to get information about your domains. Check the source if you don't believe me! <i class="icon-smile"></i></p>
+					
+				<p class="muted"><small>* The request goes though the Yahoo YQL api because the Linode API doesn't support JSONP so cross domain AJAX requests don't work</small></p>
+			</div>
+		</div>
+		<div class="span6">
+			<div class="well">
+				<h4>How to use</h4>
+				<p>Enter your Linode API key in the field above, then click find domains. A list of your domains will then appear. Click on the Fetch Resources button on the domain which has the sub domain you want to use</p>
+			</div>
+		</div>
+		</div>
+    </div> <!-- /container -->
+</div>
+    <footer class="footer">
+		<div class="container">
+			<p>
+				<a href="http://twitter.github.io/bootstrap" target="_blank">Bootstrap</a>
+				<span class="muted">&middot;</span>
+				<a href="http://fortawesome.github.io/Font-Awesome/" target="_blank">Font Awesome</a>
+				<span class="muted">&middot;</span>
+				<a href="http://www.ajaxload.info/" target="_blank">Ajaxload gif</a>
+				<span class="muted">&middot;</span>
+				<a href="http://developer.yahoo.com/yql/" target="_blank">YQL</a>
+				<span class="muted">&middot;</span>
+				<a href="http://github.com/cosmorogers" target="_blank"><i class="icon-github"></i></a>
+		</div>
+    </footer>
+
+    <!-- Le javascript
+    ================================================== -->
+    <!-- Placed at the end of the document so the pages load faster -->
+    <script src="http://code.jquery.com/jquery-1.10.0.min.js"></script>
+	<script src="js/bootstrap.min.js"></script>
+	
+	<script>
+	function doAjax(url, callback){
+	$('#loading').show();
+    if(url.match('^http')){
+      $.getJSON("http://query.yahooapis.com/v1/public/yql?"+
+                "q=select%20*%20from%20html%20where%20url%3D%22"+
+                encodeURIComponent(url)+
+                "%22&format=xml'&callback=?",
+        function(data){
+          if(data.results[0]){
+			var jsonData = JSON.parse($(data.results[0]).text());
+			$('#errors').html('');
+			if (jsonData.ERRORARRAY.length > 0) {
+				
+				$.each(jsonData.ERRORARRAY, function(i, e) {
+					$('#errors').append('<div class="alert alert-error"><strong>' + e.ERRORMESSAGE + '</strong> (code: ' + e.ERRORCODE + ')</div>');
+				});
+			} else {
+				callback(jsonData);
+			}
+          } else {
+            
+          }
+          $('#loading').hide();
+        }
+      );
+    } else {
+      $('#target').load(url);
+    }
+    
+  }
+
+		$(function() {
+			$('#api-key').submit(function(e) {
+				e.preventDefault();
+				var key = $('#inputApiKey').val();
+				if (key == '') {
+					$('.control-group').addClass('error');
+					$('.help-inline').removeClass('hide');
+				} else {
+					$('.control-group').removeClass('error');
+					$('.help-inline').addClass('hide');
+					var url = 'https://api.linode.com/?api_key=' + key + '&api_action=domain.list';
+					//Get domains
+					doAjax(url, function(data){
+						$('#domains-table tbody').empty();
+						$.each(data.DATA, function(i, e) {
+							$('#domains-table tbody').append('<tr><td>' + e.DOMAINID + '</td><td>' + e.DOMAIN + '</td><td><button type="button" class="btn btn-info fetch-resources" data-id="' + e.DOMAINID + '">Fetch Resources (sub domains)</button></td></tr>');
+						});
+						$('#domains').fadeIn();
+					});
+				}
+			});
+			
+			$(document).on('click', '.fetch-resources', function() {
+				var key = $('#inputApiKey').val();
+				var url = 'https://api.linode.com/?api_key=' + key + '&api_action=domain.resource.list&DomainID=' + $(this).data('id');
+				
+				doAjax(url, function(data) {
+					$('#resources-table tbody').empty();
+					$.each(data.DATA, function(i,e ) {
+						$('#resources-table tbody').append('<tr><td>' + e.RESOURCEID + '</td><td>' + e.NAME + '</td><td>' + e.TYPE + '</td><td>' + e.TARGET + '</td></tr>');
+					});
+					$('#resources').fadeIn();
+				});
+			});
+		});
+	</script>
+
+  </body>
+</html>
